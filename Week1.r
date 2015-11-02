@@ -7,7 +7,6 @@ for(i in 1:12){
 # Question 2: numeric vector of 20 to 50 by 5
 q2 <- c(seq(20, 50, 5))
 
-
 # Question 3: quadratic equation for a,b,c
 q3 <- function(a,b,c)
 {
