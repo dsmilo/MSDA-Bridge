@@ -1,0 +1,78 @@
+---
+title: "MSDA R Bridge Week 2 Assignment"
+author: "Dan Smilowitz"
+output: html_document
+---
+
+### Assignment and Theory
+
+The goal of this assignment is to crate a function that clones the functionality of the `choose` function.  The `choose` function takes two arguments, $n$ and $r$, and uses them to determine the number of combinations $_nC_r$ that can be produced by selecting $r$ items from a pool of $n$ items using the formula
+
+$$_nC_r = \frac{n!}{(n-r)! \times r!}$$
+
+### Creating the `choose_clone` Function
+
+#### First Attempt
+The first attempt at this function uses the `prod` function to calculate $n!$, $r!$, and $(n-r)!$.  The `prod` function, reviewed in the selected Week 1 R assignment solutions, calculates the product of all items in a vector -- in this case the vectors `1:n`, `1:r`, and `1:(n-r)`.
+
+```{r first_try}
+choose_clone <- function(n, r) {
+  # determine the three terms n!, r!, and (n-r)!
+  n_fac  <- prod(1:n)
+  r_fac  <- prod(1:r)
+  nr_fac <- prod(1:(n-r))
+  # return n!/((n-r)!*r!)
+  return(n_fac / (nr_fac * r_fac))
+}
+```
+
+This function is tested by calculating $_5C_r$ for all values of $r$ from 1 to 5, and checking if the values returned are correct:
+
+```{r first_check}
+n <- 5
+r <- seq(1:5)
+for(i in r){
+  ncr <- choose_clone(n,i)
+  print(ncr)
+  print(identical(ncr,choose(n,i)))
+}
+```
+
+#### Troubleshooting
+While the values returned where $r$ is between 1 and 4, the value of `Inf` returned for $_5C_5$ is not valid.  Investigating this for other cases where $r = n$, similar results are obtained:
+
+```{r check_same_n_r}
+choose_clone(2,2)
+choose_clone(10,10)
+```
+
+This issue  arises because when $r = n$, `prod(1:(n-r)) = prod(1:0)`.  This makes `prod` operate on the vector `1, 0`, returning a value of 0.  This is then used as the value of $(n-r)! = 0!$, though it is known that $0! = 1$.
+
+#### Second Attempt
+
+In order to correct the error identified above where $r = n$, a control statement is added to handle this special case:
+
+```{r second_try}
+choose_clone_2 <- function(n, r) {
+  # determine the three terms n!, r!, and (n-r)!
+  n_fac  <- prod(1:n)
+  r_fac  <- prod(1:r)
+  nr_fac <- prod(1:(n-r))
+  # in cases where n=r, return 1 since 0!=1
+  if(n == r){nr_fac <- 1}
+  # return n!/((n-r)!*r!)
+  return(n_fac / (nr_fac * r_fac))
+}
+```
+
+This revised `choose_clone_2` function is tested using the same input as above, and is shown to function properly:
+
+```{r second_check,echo=FALSE}
+n <- 5
+r <- seq(1:5)
+for(i in r){
+  ncr <- choose_clone_2(n,i)
+  print(ncr)
+  print(identical(ncr,choose(n,i)))
+}
+```
