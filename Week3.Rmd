@@ -1,0 +1,45 @@
+---
+title: "MSDA R Bridge Week 3 Assignment"
+author: "Dan Smilowitz"
+output: html_document
+---
+  
+  
+#### Loading Data
+To prepare for loading the data, column names are specified based on the 'Attribute Information' section at https://archive.ics.uci.edu/ml/datasets/Mushroom:
+```{r col-names}
+mushroom_fields <- c('class', 'cap_shape', 'cap_surface', 'cap_color', 'bruises', 'odor', 'gill_attachment', 'gill_spacing',
+                     'gill_size', 'gill_color', 'stalk_shape', 'stalk_root', 'stalk_surface_above_ring',
+                     'stalk_surface_below_ring', 'stalk_color_above_ring', 'stalk_color_below_ring', 'veil_type',
+                     'veil_color', 'ring_number', 'ring_type', 'spore_print_color', 'population', 'habitat')
+```
+  
+The data is then read in from https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data:
+```{r read-data}
+mushroom <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data',
+                       header=FALSE, sep=",", col.names = mushroom_fields)
+```
+  
+  
+#### Creating subset  
+A new `data.frame` is then constructed with 5 colums from `mushroom`:
+```{r subset}
+my_mushrooms <- mushroom[ , c('class', 'bruises', 'gill_size',
+                             'stalk_shape', 'veil_type')]
+```
+  
+Using the atrribute information at https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.names, the abbreviations in the data are replaced:
+```{r abbreviations}
+my_mushrooms$class       <- ifelse(my_mushrooms$class == 'e', 'edible', 'poisonous')
+my_mushrooms$bruises     <- ifelse(my_mushrooms$bruises == 't', 'bruises', 'no')
+my_mushrooms$gill_size   <- ifelse(my_mushrooms$gill_size == 'b', 'broad', 'narrow')
+my_mushrooms$stalk_shape <- ifelse(my_mushrooms$stalk_shape == 'e', 'enlarging', 'tapering')
+my_mushrooms$veil_type   <- ifelse(my_mushrooms$veil_type == 'p', 'partial', 'universal')
+```
+  
+  
+#### Results
+The resulting `data.frame`:
+```{r results}
+head(my_mushrooms)
+```
