@@ -1,0 +1,78 @@
+---
+title: "MSDA R Bridge Week 4 Assignment"
+author: "Dan Smilowitz"
+output: html_document
+---
+
+### Selecting a Dataset
+For this assignment, the `mpg` dataset included in the `ggplot2` package will be used.  Per the description provided by calling `data(package = ("ggplot2"))`, the dataset includes fuel economy data from 1999 and 2008 for 38 popular models of car.
+
+The package is loaded and the dataset stored into memory:
+```{r load-data, message=FALSE}
+require(ggplot2)
+data(mpg)
+str(mpg)
+```
+
+### Modifying the Data
+The numerical data contained in the `cyl` column only contains a few discrete values, so this is modified to be a factor:
+```{r cyl}
+mpg$cyl <- factor(mpg$cyl)
+```
+  
+The dataset contains highway gas mileage and city gas mileage, but not an overall average gas mileage.  This is calculated using the [methodology](https://www.fueleconomy.gov/feg/label/learn-more-gasoline-label.shtml#fuel-economy) prescribed by the US Department of Energy:  
+```{r avg}
+mpg$avg <- 0.55 * mpg$cty + 0.45 * mpg$hwy
+```
+  
+  
+### Investigating the Data
+The graphical investigations of the data are performed using `ggplot2`.  Some parameters common across all generated graphics are set for convenience:
+```{r plot-params}
+g <- ggplot(mpg) + theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
+```
+#### Histogram
+First, a histogram of the average gas mileage is created:
+```{r hist, fig.retina=1}
+g + geom_histogram(aes(x = avg), binwidth = 2, col = 'black', alpha = 0.5) +
+  ggtitle("Frequency of Average Fuel Economy Values\n") +
+  scale_x_continuous("Fuel Economy (mpg)") +
+  scale_y_continuous("")
+```
+  
+From this histogram, it can be seen that the cars' gase milages range from 10-40 miles per gallon, with large concentrations between 14-16 and 20-26 miles per gallon.
+
+#### Boxplot
+Next, a boxplot is created for the same data:
+```{r box-1, fig.retina=1}
+g + geom_boxplot(aes(x = 1, y = avg), alpha = 0.5) +
+  ggtitle("Distribution of Average Miles per Gallon\n") +
+  scale_x_continuous("", breaks = NULL) +
+  scale_y_continuous("") +
+  coord_flip()
+```
+  
+The boxplot illustrates that the first and third quartiles lie at roughly 15 and 23 miles per gallon, respectively.  It can also be seen in this plot that the three highest average fuel economy values are outliers from the distribution
+
+For additional insight, a boxplot is recreated, with a separate plot for each possible value of engine cylinders (`cyl`):
+```{r box-2, fig.retina=1}
+g + geom_boxplot(aes(x = 1, y = avg, fill = cyl), alpha = 0.5) +
+  ggtitle("Distribution of Average Miles per Gallon\n") +
+  scale_x_continuous("", breaks = NULL) +
+  scale_y_continuous("") +
+  coord_flip()
+```
+
+
+From this plot, it is clear that cars with fewer cylinders generally have a better fuel economy, getting more miles per gallon.  However, there is a good deal of overlap between the distributions for different cylinder values.
+
+#### Scatterplot
+To investigate the relationship between engine displacement (`displ`) and fuel economy, the two variables are plotted against one another.  Based on the findings about number of cylinders in the previous plot, the points are colored differently based on plot to allow additional insight.
+```{r scatter, fig.retina=1}
+g + geom_point(aes(x = displ, y = avg, col = cyl), alpha = 0.5) +
+  scale_x_continuous("Engine Displacement") +
+  scale_y_continuous("Average Fuel Economy (mpg)") +
+  ggtitle("Fuel Economy by Engine Displacement (L) \n")
+```
+
+This plot illustrates an inverse relationship between engine displacement and fuel economy.  It can also be seen that engines with more cylinders generally have larger displacements.  These are both logical observations, as additional cylinders increase the size of the engine, and larger engines need more fuel to properly ignite.
