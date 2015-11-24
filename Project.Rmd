@@ -97,9 +97,6 @@ g + geom_boxplot(aes(x = 1, y = arr_delay), outlier.colour = 'red') +
 From this boxplot, it is clear that all observations of greater than 200 minutes are outliers, so the histogram is recreated excluding these points.  With the "zooming-in" on the histogram, narrower bins are used to view the data with increased granularity.
 
 ```{r histogram-2, message = FALSE, echo = FALSE, fig.retina = 1}
-require(ggplot2)
-require(scales)
-g <- ggplot(nyc_flights) + theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
 g + geom_histogram(aes(x = arr_delay, y = ..density.., fill = ..count..), binwidth = 5, alpha = 0.5, col = 'black') +
   scale_x_continuous("Arrival Delay (minutes)",lim = c(-100,200)) +
   scale_y_continuous("", labels=percent) +
