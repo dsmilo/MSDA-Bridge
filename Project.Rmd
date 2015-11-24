@@ -1,0 +1,153 @@
+---
+title: "R Bridge Project"
+author: "Dan Smilowitz"
+output: html_document
+---
+
+### Background
+The purpose of this project is to perform manipulation and basic analysis of a `data.frame` in R.  To accomplish this, I will be utilizing the `nycflights13` package, which contains information about all flights leaving New York City in 2013.  The full documentation for the package is available [here](https://cran.r-project.org/web/packages/nycflights13/nycflights13.pdf).
+```{r load-package, echo = FALSE, message = FALSE}
+require(nycflights13)
+```
+The `flights` dataset in the `nycflights13` package contains the on-time information about all of the 2013 flights.  This is loaded into memory as `nyc_flights`:
+```{r load-flights}
+nyc_flights <- flights
+str(nyc_flights)
+```
+
+
+### Data Manipulation
+The date of the flights is stored in separate columns; these are converted to a date format recognized by R into a new `date` column:
+```{r date}
+nyc_flights$date <- as.Date(paste(nyc_flights$year,
+                                  nyc_flights$month,
+                                  nyc_flights$day, sep = "-"))
+```
+
+The `carrier`, `tailnum`, `origin`, and `dest` columns are stored as characters, but will be more useful for exploratory analysis as factors:
+```{r factors}
+nyc_flights$carrier <- factor(nyc_flights$carrier)
+nyc_flights$tailnum <- factor(nyc_flights$tailnum)
+nyc_flights$origin  <- factor(nyc_flights$origin)
+nyc_flights$dest    <- factor(nyc_flights$dest)
+```
+
+The `airlines`, `airports`, and `planes` datasets included in the `nycflights13` package include metadata about the `carrier`, `dest`, and `tailnum` fields in the `flights` table.  The information from these tables is incorporated into `nyc_flights` using the `dplyr` package:
+```{r inner-joins, message = FALSE, warning = FALSE}
+require(dplyr)
+# join airports dataset on faa code for destinations
+nyc_flights <- inner_join(nyc_flights, airports, by = c("dest" = "faa"))
+# change ambiguous airport 'name' column
+names(nyc_flights)[names(nyc_flights) == "name"]<- "dest_name"
+# join airlines dataset on 2-character carrier code
+nyc_flights <- inner_join(nyc_flights, airlines, by = "carrier")
+# change ambiguous airline 'name' column
+names(nyc_flights)[names(nyc_flights) == "name"] <- "airline"
+```
+
+The `weather` dataset included in the package includes hourly data for the three NYC airports.  To link this data to `nyc_flights`, a `left_join` is used in case there is missing weather data:
+```{r left-join, warning = FALSE}
+nyc_flights <- left_join(nyc_flights, weather, by = c("year", "month", "day", "hour", "origin"))
+str(nyc_flights)
+```
+
+Following the joins, the character columns above are again changed to factors.
+```{r factors-2, echo = FALSE}
+nyc_flights$carrier <- factor(nyc_flights$carrier)
+nyc_flights$tailnum <- factor(nyc_flights$tailnum)
+nyc_flights$origin  <- factor(nyc_flights$origin)
+nyc_flights$dest    <- factor(nyc_flights$dest)
+```
+
+Inspecting the resulting `data.frame`, it appears that data is largely unavailable for JFK and LGA airports.  To allow for investigation of the impact of weather, a subset of the `nyc_flights` dataset is created for flights departing EWR, containing only the relevant columns and excluding `NA` values:
+```{r EWR-weather}
+EWR_flights <- na.omit(subset(nyc_flights, origin == "EWR", c(arr_delay, temp:visib)))
+```
+
+### Exploratory Analysis
+Exploration of the data contained in `nyc_flights` and `EWR_flights` can be performed using graphics.
+
+#### *What is the distribution of flight delay times?*
+
+Since the arrival delay is the delay that passengers likely measure their flights' on-time behavior against, this is investigated using `ggplot2`:
+```{r graph-settings, message = FALSE, echo = FALSE}
+require(ggplot2)
+require(scales)
+g <- ggplot(nyc_flights) + theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
+```
+
+```{r histogram-1, message = FALSE, echo = FALSE, fig.retina = 1}
+g + geom_histogram(aes(x = arr_delay, y = ..density.., fill = ..count..), binwidth = 15, alpha = 0.5, col = 'black') +
+  scale_x_continuous("Arrival Delay (minutes)") +
+  scale_y_continuous("", labels = percent) +
+  ggtitle("Density of Flight Delays\n") +
+  scale_fill_gradient(low = "red", high = "green", guide = FALSE)
+```
+
+This plot shows a very strong concentration of points between roughly -100 and 250 minutes, with the highest concentration between -15 and 0 minutes.  There is a very long, low tail extending out to over 1250 minutes.  To investigate if these points are outliers, a boxplot is created with outliers highlighted in red:
+
+```{r boxplot, message = FALSE, echo = FALSE, fig.retina = 1, warning = FALSE}
+g + geom_boxplot(aes(x = 1, y = arr_delay), outlier.colour = 'red') +
+  scale_x_continuous("", lim = c(0.5, 1.5), breaks = NULL) +
+  scale_y_continuous("Arrival Delay (minutes)") +
+  ggtitle("Distribution of Flight Delays\n") +
+  coord_flip()
+```
+
+From this boxplot, it is clear that all observations of greater than 200 minutes are outliers, so the histogram is recreated excluding these points.  With the "zooming-in" on the histogram, narrower bins are used to view the data with increased granularity.
+
+```{r histogram-2, message = FALSE, echo = FALSE, fig.retina = 1}
+require(ggplot2)
+require(scales)
+g <- ggplot(nyc_flights) + theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
+g + geom_histogram(aes(x = arr_delay, y = ..density.., fill = ..count..), binwidth = 5, alpha = 0.5, col = 'black') +
+  scale_x_continuous("Arrival Delay (minutes)",lim = c(-100,200)) +
+  scale_y_continuous("", labels=percent) +
+  ggtitle("Density of Flight Delays\n") +
+  scale_fill_gradient(low = "red", high = "green", guide = FALSE)
+```
+
+From this scatterplot, it can be seen that a very large portion of flights arrive between 30 minutes early and five minutes late, with the highest frequency between 20 minutes early and exactly on time.  The fact that such a high portion of flights arrive early may be by design, as airlines may add additional time into their scheduled flight duration so that they can report early arrivals.
+
+To investigate if there is any difference between airports, the previous plot is broken down by `origin` airport.  The plot shows that the three airports have remarkably similar distributions of flight delays:
+
+```{r histogram-3, echo = FALSE, fig.retina = 1}
+last_plot() + facet_wrap(~ origin, ncol = 1)
+```
+
+
+#### *How does weather affect flight delays?*
+
+Since weather data is available for most flights (98984) departing Newark Liberty International Airport (EWR), the relationship between weather at the origin airport and arrival delay can be studied for this dataset.  It should be noted that all of the investigations of weather below do not take weather at the destination airport into account, which would likely have a strong affect on the on-time performance of flights.
+
+In order to determine which weather variables are most likely to impact flights' delays, a correlation matrix is calculated for `EWR_flights`:
+```{r cor, echo = FALSE}
+cor(EWR_flights)
+```
+
+The first column of this correlation matrix contains the corelations between each  variable and `arr_delay`.  The low values in this column indicated that there is a very weak relationship between weather at the origin airport and the flight delay.  For the sake of completion, however, the relationship is still analyzed.
+
+By sorting the first column according to the absolute value of the correlation, the variables with the strongest relationship with `arr_delay` can be identified.  Since `arr_delay` will necessarily have a perfect correlation with itself, the second- and third-highest values returned will be those with the strongest correlation with `arr_delay`:
+```{r sort-cor}
+sort(abs(cor(EWR_flights)[, 1]), decreasing = TRUE)[2:3]
+```
+
+Since `pressure` has the strongest correlation, it will be plotted against `arr_delay`, with `visib` used to determine the color of the points:
+```{r scatter, message = FALSE, echo = FALSE, fig.retina = 1}
+ggplot(EWR_flights, aes(x = pressure, y = arr_delay, col = visib)) +
+  geom_point(alpha = 0.2) +
+  theme(legend.position = "bottom", plot.title = element_text(face = "bold")) +
+  scale_x_continuous("Sea Level Pressure (millibars)") +
+  scale_y_continuous("Arrival Delay (minutes)") +
+  ggtitle("Arrival Delay vs. Atmospheric Pressure\n") +
+  scale_color_gradient(low = "red", high = "green", name = "Visibility (miles)") +
+  geom_smooth(method = lm, linetype = "dotted", size = 1.25, color = "black")
+```
+
+As expected, this scatterplot shows a very weak relationship between `pressure` and `arr_delay`, and the coloring of the scatter indicates that most `visib` points lie at or around 10 miles.  This is further shown by calculating the linear relationship between the two variables:
+
+```{r regression}
+summary(lm(EWR_flights$arr_delay ~ EWR_flights$pressure))
+```
+
+The R-sqared value for this linear relationship is 0.01399, which represents essentially no relationship.
